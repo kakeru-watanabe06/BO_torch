@@ -3,14 +3,12 @@
     "train": "data/train/s1_summary_train_dataset.xlsx",
     "all": "data/train/s1_summary_scaled_FP.xlsx",
     "id_col": "Folder",
-    "x_cols": [],
-    "x_col_start": 25,
-    "x_col_end": 2074,
+    "x_cols": ["F_3", "F_6", "F_7", "R_3", "R_6", "R_7"],
     "y_cols": ["S1_energy_eV_scaled", "Oscillator_strength_scaled"]
   },
   "objective": {
     "kind": "target_distance",
-    "targets": [-0.008576475598373292,-1.0171548970153093],
+    "targets": [1.0846685906396112,-0.47645839516906746],
     "weights": [1.0, 1.0],
     "power": 2.0
   },
@@ -24,6 +22,6 @@
   },
   "output": {
     "outdir": "results/offline_bo",
-    "tag": "C4_qEHVI_FP_matern32_v1"
+    "tag": "C2_qEHVI_FR_tanimoto_v1"
   }
 }
