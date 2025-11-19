@@ -1,0 +1,27 @@
+{
+  "data": {
+    "train": "/lab/BO_torch/data/train/s1_summary_train_dataset.xlsx",
+    "all": "/lab/BO_torch/data/train/s1_summary_scaled.xlsx",
+    "id_col": "Folder",
+    "x_cols": ["F_3", "F_6", "F_7", "R_3", "R_6", "R_7"],
+    "y_cols": ["S1_energy_eV_scaled", "Oscillator_strength_scaled"]
+  },
+  "objective": {
+    "kind": "target_distance",
+    "targets": [-0.008576475598373292,-1.0171548970153093],
+    "weights": [1.0, 1.0],
+    "power": 2.0
+  },
+  "model": {
+    "kernel": "matern32",
+    "ard": false
+  },
+  "bo": {
+    "max_iters": 64,
+    "mc": 512
+  },
+  "output": {
+    "outdir": "results/offline_bo",
+    "tag": "C4_qEHVI_v1"
+  }
+}
