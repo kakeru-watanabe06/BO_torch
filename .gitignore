@@ -1,0 +1,35 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# ---- Virtual env / conda ----
+.env/
+.venv/
+venv/
+env/
+*.conda
+*.ipynb_checkpoints
+
+# ---- VSCode ----
+.vscode/
+.history/
+
+# ---- Project specific ----
+# 結果・ログ類
+results/
+logs/
+*.log
+
+# 一時ファイル
+*.tmp
+*.temp
+
+# Jupyter / 実験ノート類
+*.ipynb_checkpoints/
+
+# OSごとのゴミ
+.DS_Store
+Thumbs.db
