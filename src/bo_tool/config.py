@@ -15,6 +15,9 @@ class DataConfig:
     id_col: str
     x_cols: List[str]
     y_cols: List[str]
+    # 追加：カラム範囲（0-based / iloc 用インデックス）
+    x_col_start: Optional[int] = None
+    x_col_end: Optional[int] = None   # Python のスライスと同じで「終端は含まない」
 
 @dataclass
 class ModelConfig:
@@ -70,6 +73,8 @@ def load_config(path: str) -> ExperimentConfig:
         id_col=data_cfg["id_col"],
         x_cols=data_cfg["x_cols"],
         y_cols=data_cfg["y_cols"],
+        x_col_start=data_cfg.get("x_col_start"),
+        x_col_end=data_cfg.get("x_col_end"),
     )
 
     # ===== objective =====

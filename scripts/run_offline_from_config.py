@@ -34,12 +34,14 @@ def main():
     cfg = load_config(args.config)
 
     # load data
-    used_df, pool_df, X_train, Y_train_raw = load_offline_data(
+    used_df, pool_df, X_train, Y_train_raw, x_cols = load_offline_data(
         train_path=cfg.data.train,
         all_path=cfg.data.all,
         id_col=cfg.data.id_col,
         X_cols=cfg.data.x_cols,
         y_cols=cfg.data.y_cols,
+        x_col_start=cfg.data.x_col_start,
+        x_col_end=cfg.data.x_col_end,
     )
 
     # objective spec
@@ -47,7 +49,7 @@ def main():
 
     # BO loop
     history = offline_bo_loop(
-        X_cols=cfg.data.x_cols,
+        X_cols=x_cols,
         y_cols=cfg.data.y_cols,
         id_col=cfg.data.id_col,
         pool_df=pool_df,
