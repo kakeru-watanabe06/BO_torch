@@ -1,19 +1,12 @@
 {
   "data": {
-    "train": "data/train/s1_summary_train_dataset.xlsx",
-    "all": "data/train/s1_summary_scaled_FP.xlsx",
-    "id_col": "Folder",
-    "x_cols": [
-      "F_3",
-      "F_6",
-      "F_7",
-      "R_3",
-      "R_6",
-      "R_7"
-    ],
-    "y_cols": [
-      "S1_energy_eV_scaled"
-    ]
+    "train": "data/train/tg_study.xlsx",
+    "all": "data/train/tg_data.xlsx",
+    "id_col": "ID",
+    "x_cols": [],
+    "y_cols": ["tg"],
+    "x_col_start": 2,
+    "x_col_end": 601
   },
   "objective": {
     "kind": "identity_multi",
@@ -35,12 +28,12 @@
   },
 
   "bo": {
-    "max_iters": 64,
+    "max_iters": 100,
     "mc": 512
   },
 
   "output": {
     "outdir": "results/offline_bo",
-    "tag": "test_qEHVI_FR_matern52_v1"
+    "tag": "tg_qI_polybert_matern52"
   }
 }

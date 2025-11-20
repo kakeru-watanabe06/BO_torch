@@ -8,6 +8,7 @@ from botorch.acquisition.multi_objective.objective import GenericMCMultiOutputOb
 from botorch.acquisition.objective import GenericMCObjective
 
 
+
 ObjectiveKind = Literal["target_distance", "identity_multi", "linear_scalarization"]
 
 

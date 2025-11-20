@@ -5,7 +5,9 @@ from typing import List, Optional, Dict
 import torch
 import pandas as pd
 from botorch.utils.multi_objective.hypervolume import Hypervolume
-
+from botorch.models import SingleTaskGP, ModelListGP
+from bo_tool.models import build_models  # まだ import してなければ追加
+from botorch.models import SingleTaskGP, ModelListGP
 from bo_tool.objectives import (
     ObjectiveSpec,
     to_object_space,
@@ -135,3 +137,111 @@ def make_metrics_dataframe(
 
     df = pd.DataFrame({"iter": iters, **data})
     return df
+
+# ===== ここから LOOCV 用ユーティリティ =====
+
+def _regression_metrics_1d(
+    y_true: torch.Tensor,
+    y_pred: torch.Tensor,
+) -> Dict[str, float]:
+    """
+    1 次元系列に対して RMSE / MAE / R² を計算。
+    （すでにあればそれを使ってOK）
+    """
+    y_true = y_true.flatten()
+    y_pred = y_pred.flatten()
+
+    residual = y_pred - y_true
+    rmse = torch.sqrt(torch.mean(residual ** 2))
+    mae = torch.mean(torch.abs(residual))
+
+    ss_res = torch.sum(residual ** 2)
+    ss_tot = torch.sum((y_true - y_true.mean()) ** 2)
+    r2 = 1.0 - ss_res / ss_tot
+
+    return {
+        "rmse": float(rmse),
+        "mae": float(mae),
+        "r2": float(r2),
+    }
+
+
+def brute_force_loocv_metrics(
+    X_train: torch.Tensor,
+    Y_train_raw: torch.Tensor,
+    y_names: List[str],
+    model_cfg,
+) -> Dict[str, Dict[str, float]]:
+    """
+    完全愚直版 LOOCV：
+      各 i について
+        - i を抜いたデータで build_models(...) して GP をフィット
+        - x_i を予測
+      を N 回まわし、
+      各出力次元ごとに RMSE / MAE / R² を返す。
+
+    戻り値:
+      {
+        "S1_energy_eV_scaled": {"rmse": ..., "mae": ..., "r2": ...},
+        "Oscillator_strength_scaled": {...},
+        ...
+      }
+    """
+    device = X_train.device
+    dtype = X_train.dtype
+
+    N = X_train.shape[0]
+    Y_train_raw = Y_train_raw.to(device=device, dtype=dtype)
+
+    # 予測値を貯めるバッファ (N, M)
+    if Y_train_raw.ndim == 1:
+        Y_train_raw = Y_train_raw.view(N, 1)
+    N, M = Y_train_raw.shape
+    assert M == len(y_names), "y_names の長さと Y_train_raw の列数が一致していません"
+
+    Y_pred = torch.empty_like(Y_train_raw)
+
+    # 各 i について「i を抜いて再フィット → x_i を予測」
+    for i in range(N):
+        mask = torch.ones(N, dtype=torch.bool, device=device)
+        mask[i] = False
+
+        X_i = X_train[mask]        # (N-1, d)
+        Y_i = Y_train_raw[mask]    # (N-1, M)
+
+        # build_models は X, Y, model_cfg から SingleTaskGP or ModelListGP を返す想定
+        model_i = build_models(X_i, Y_i, model_cfg)
+        model_i.eval()
+
+        x_test = X_train[i : i + 1]  # (1, d)
+
+        if isinstance(model_i, SingleTaskGP):
+            # 多出力 SingleTaskGP の場合は mean の shape が (1, M) のイメージ
+            with torch.no_grad():
+                post = model_i.posterior(x_test)
+                mean = post.mean.view(1, -1)  # (1, M)
+            Y_pred[i] = mean[0]
+
+        elif isinstance(model_i, ModelListGP):
+            # 各 output ごとに 1 つの SingleTaskGP
+            assert len(model_i.models) == M, "ModelListGP のモデル数と Y の次元が一致していません"
+            preds = []
+            with torch.no_grad():
+                for sub_model in model_i.models:
+                    assert isinstance(sub_model, SingleTaskGP)
+                    post = sub_model.posterior(x_test)
+                    # (1,1) を想定
+                    preds.append(post.mean.view(-1)[0])
+            Y_pred[i] = torch.stack(preds)
+
+        else:
+            raise TypeError(f"Unsupported model type in brute_force_loocv_metrics: {type(model_i)}")
+
+    # 各次元ごとに指標を計算
+    results: Dict[str, Dict[str, float]] = {}
+    for j, name in enumerate(y_names):
+        y_true_j = Y_train_raw[:, j]
+        y_pred_j = Y_pred[:, j]
+        results[name] = _regression_metrics_1d(y_true_j, y_pred_j)
+
+    return results
