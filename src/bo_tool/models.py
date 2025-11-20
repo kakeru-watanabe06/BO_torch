@@ -23,6 +23,10 @@ def make_covar_module(input_dim: int, cfg: ModelConfig):
     # Tanimoto では ARD 無効
     ard_num_dims = input_dim if (cfg.ard and cfg.kernel != "tanimoto") else None
 
+    if cfg.kernel in ("matern12", "matern_1_2"):
+        base = MaternKernel(nu=0.5, ard_num_dims=ard_num_dims)
+        return ScaleKernel(base)
+
     if cfg.kernel in ("matern32", "matern_3_2"):
         base = MaternKernel(nu=1.5, ard_num_dims=ard_num_dims)
         return ScaleKernel(base)

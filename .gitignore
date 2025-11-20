@@ -18,6 +18,8 @@ env/
 .history/
 
 # ---- Project specific ----
+# 1. データ類
+data/
 # 結果・ログ類
 results/
 logs/

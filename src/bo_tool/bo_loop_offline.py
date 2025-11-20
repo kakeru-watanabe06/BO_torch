@@ -7,6 +7,7 @@ import pandas as pd
 from bo_tool.models import build_models
 from bo_tool.acquisition import pick_next
 from bo_tool.objectives import ObjectiveSpec
+from bo_tool.metrics import brute_force_loocv_metrics
 
 
 
@@ -35,6 +36,7 @@ def offline_bo_loop(
     model_cfg,                # ← ★ 追加：model 設定
     max_iters: int = 64,
     num_mc_samples: int = 512,
+    eval_cfg: Optional[Dict] = None,
 ) -> List[Dict]:
     """
     既知空間での BO ループ（プールから選んで真値をそのまま観測）。
@@ -59,10 +61,10 @@ def offline_bo_loop(
             num_mc_samples=num_mc_samples,
         )
 
-        # ===== 3) 真値観測 =====
+         # ===== 3) 真値観測 =====
         picked = pool_df.iloc[best_idx]
-        newX = torch.tensor([picked[X_cols].to_numpy()], dtype=torch.double)
-        newY = torch.tensor([picked[y_cols].to_numpy()], dtype=torch.double)
+        newX = torch.tensor(picked[X_cols].to_numpy().reshape(1, -1), dtype=torch.double)
+        newY = torch.tensor(picked[y_cols].to_numpy().reshape(1, -1), dtype=torch.double)
 
         # ===== 4) 学習集合に追加 =====
         X_train = torch.cat([X_train, newX], dim=0)
@@ -87,9 +89,24 @@ def offline_bo_loop(
                 rec[f"target_absdiff[{j}]"] = float(dj)
             rec["target_absdiff_sum"] = float(sum_dist)
 
+        # ===== 6) LOOCV 評価 =====
+        if eval_cfg is not None and eval_cfg.get("loocv", False):
+            min_pts = eval_cfg.get("min_points", 5)
+            if X_train.shape[0] >= min_pts:
+                loocv_res = brute_force_loocv_metrics(
+                    X_train=X_train,
+                    Y_train_raw=Y_train_raw,
+                    y_names=y_cols,
+                    model_cfg=model_cfg,
+                )
+                for name, m in loocv_res.items():
+                    rec[f"loocv_{name}_rmse"] = m["rmse"]
+                    rec[f"loocv_{name}_mae"] = m["mae"]
+                    rec[f"loocv_{name}_r2"] = m["r2"]
+
         history.append(rec)
 
-        # ===== 6) プールから削除 =====
+        # ===== 7) プールから削除 =====
         pool_df = pool_df.drop(pool_df.index[best_idx]).reset_index(drop=True)
 
     return history

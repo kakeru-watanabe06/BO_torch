@@ -47,7 +47,7 @@ def main():
     # objective spec
     spec = build_objective_spec(cfg.data.y_cols, cfg.objective)
     eval_cfg = {
-        "loocv": False,
+        "loocv": True,
         "min_points": 5,  # 5点まではLOOCVスキップ
         }
     # BO loop
@@ -61,7 +61,8 @@ def main():
         spec=spec,
         model_cfg=cfg.model,       
         max_iters=cfg.bo.max_iters,
-        num_mc_samples=cfg.bo.mc
+        num_mc_samples=cfg.bo.mc,
+        eval_cfg=eval_cfg,
     )
 
 

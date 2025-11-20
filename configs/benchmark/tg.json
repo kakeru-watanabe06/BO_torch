@@ -33,7 +33,7 @@
   },
 
   "output": {
-    "outdir": "results/offline_bo",
+    "outdir": "results/tg_offline_bo",
     "tag": "tg_qI_polybert_matern52"
   }
 }

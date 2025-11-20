@@ -9,23 +9,23 @@
       "F_7",
       "R_3",
       "R_6",
-      "R_7"
-    ],
+      "R_7"],
     "y_cols": [
-      "S1_energy_eV_scaled"
+      "S1_energy_eV_scaled",
+      "Oscillator_strength_scaled"
     ]
   },
+  
   "objective": {
-    "kind": "identity_multi",
-    "maximaize": [
-      1
-    ],
-    "weights": [
-      1.0
-    ]
+    "kind": "target_distance",
+    "targets": [-0.8375303574744327,1.009637247171215],
+    "weights": [1.0, 1.0],
+    "power": 2.0,
+    "maximize": null
   },
+
   "model": {
-    "kernel": "matern52",
+    "kernel": "matern12",
     "ard": false
   },
 
@@ -41,6 +41,6 @@
 
   "output": {
     "outdir": "results/offline_bo",
-    "tag": "test_qEHVI_FR_matern52_v1"
+    "tag": "C0_qEHVI_FR_Exponential_v1"
   }
 }
