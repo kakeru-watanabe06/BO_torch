@@ -8,8 +8,8 @@ from botorch.acquisition.multi_objective.objective import GenericMCMultiOutputOb
 from botorch.acquisition.objective import GenericMCObjective
 
 
-
-ObjectiveKind = Literal["target_distance", "identity_multi", "linear_scalarization"]
+PerDimMode = Literal["target", "identity"]
+ObjectiveKind = Literal["target_distance", "identity_multi", "linear_scalarization","mixed_multi"]
 
 
 @dataclass
@@ -25,6 +25,7 @@ class ObjectiveSpec:
     targets: Optional[Sequence[float]] = None  # target_distance のとき必須（長さ m）
     power: float = 2.0                         # target_distance の距離の冪
     maximize: Optional[Sequence[bool]] = None  # identity_multi用（True=最大化, False=最小化）
+    modes: Optional[Sequence[PerDimMode]] = None  # mixed_multi用（長さ m）
 
     def dim(self) -> int:
         return len(self.weights)
@@ -63,6 +64,39 @@ def to_object_space(Y_raw: torch.Tensor, spec: ObjectiveSpec) -> torch.Tensor:
         w = spec.as_tensor(spec.weights, like=Y_raw)  # (m,)
         val = (Y_raw * w).sum(dim=-1, keepdim=True)   # (…, 1)
         return val
+    
+    elif spec.kind == "mixed_multi":
+                # 次元ごとに mode を切り替える
+        assert spec.modes is not None, "mixed_multi では modes が必須です"
+        assert len(spec.modes) == m, "modes の長さが出力次元 m と一致していません"
+
+        modes = list(spec.modes)
+        maximize = spec.maximize or [True] * m
+        assert len(maximize) == m, "maximize の長さが m と一致していません"
+
+        w = spec.as_tensor(spec.weights, like=Y_raw)  # (m,)
+        targets = spec.as_tensor(spec.targets, like=Y_raw) if spec.targets is not None else None
+
+        outs = []
+        for j in range(m):
+            yj = Y_raw[..., j]
+            mode_j = modes[j]
+
+            if mode_j == "identity":
+                # そのまま or 符号反転（スケーリングしたければ w[j] かけてもOK）
+                sign_j = 1.0 if maximize[j] else -1.0
+                outs.append(sign_j * yj)
+
+            elif mode_j == "target":
+                assert targets is not None, "target モードには targets が必要です"
+                diff = (yj - targets[..., j]).abs().pow(spec.power)
+                outs.append(-w[j] * diff)
+
+            else:
+                raise ValueError(f"Unknown per-dim mode: {mode_j}")
+
+        # (…, m)
+        return torch.stack(outs, dim=-1)
 
     else:
         raise ValueError(f"Unknown ObjectiveSpec.kind={spec.kind}")

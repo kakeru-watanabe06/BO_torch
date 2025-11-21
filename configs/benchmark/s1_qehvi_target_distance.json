@@ -15,13 +15,14 @@
       "Oscillator_strength_scaled"
     ]
   },
-  
+    
   "objective": {
-    "kind": "target_distance",
-    "targets": [-0.8375303574744327,1.009637247171215],
-    "weights": [1.0, 1.0],
+    "kind": "mixed_multi",
+    "weights": [1.0, 1.0],           
+    "targets": [0.0, 1.0],         
     "power": 2.0,
-    "maximize": null
+    "maximize": [true, true],       
+    "modes": ["identity", "target"] 
   },
 
   "model": {
@@ -41,6 +42,6 @@
 
   "output": {
     "outdir": "results/offline_bo",
-    "tag": "C0_qEHVI_FR_Exponential_v1"
+    "tag": "mixed_multi_s1_qehvi_matern12"
   }
 }

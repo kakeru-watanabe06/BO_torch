@@ -26,11 +26,12 @@ class ModelConfig:
 
 @dataclass
 class ObjectiveConfig:
-    kind: Literal["target_distance", "identity_multi", "linear_scalarization"] = "target_distance"
+    kind: Literal["target_distance", "identity_multi", "linear_scalarization", "mixed_multi"] = "target_distance"
     weights: Optional[List[float]] = None
     targets: Optional[List[float]] = None
     power: float = 2.0
     maximize: Optional[List[bool]] = None
+    modes: Optional[List[Literal["target", "identity"]]] = None
 
 
 @dataclass
@@ -85,6 +86,7 @@ def load_config(path: str) -> ExperimentConfig:
         weights=obj_cfg.get("weights", []),
         power=obj_cfg.get("power", 2.0),
         maximize=obj_cfg.get("maximize", []),
+        modes=obj_cfg.get("modes", []),
     )
 
     # ===== model =====
@@ -126,4 +128,5 @@ def build_objective_spec(y_cols: List[str], oc: ObjectiveConfig) -> ObjectiveSpe
         targets=oc.targets,
         power=oc.power,
         maximize=oc.maximize,
+        modes=oc.modes,
     )
