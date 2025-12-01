@@ -1,12 +1,12 @@
 {
   "data": {
-    "train": "data/train/tg_study.xlsx",
-    "all": "data/train/tg_data.xlsx",
+    "train": "data/train/tg_study_ECFP.xlsx",
+    "all": "data/train/tg_all_ECFP.xlsx",
     "id_col": "ID",
     "x_cols": [],
     "y_cols": ["tg"],
     "x_col_start": 2,
-    "x_col_end": 601
+    "x_col_end": 2049
   },
   "objective": {
     "kind": "identity_multi",
@@ -18,7 +18,7 @@
     ]
   },
   "model": {
-    "kernel": "matern52",
+    "kernel": "tanimoto",
     "ard": false
   },
 
@@ -28,7 +28,7 @@
   },
 
   "bo": {
-    "max_iters": 100,
+    "max_iters": 400,
     "mc": 512
   },
 

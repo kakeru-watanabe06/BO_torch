@@ -1,0 +1,5 @@
+[INFO] X_cols resolved by index [2:2049) → 2047 columns
+[DEBUG] X_train.shape = torch.Size([6, 2047])
+[OK] Saved: results/offline_bo/20251128-165910_tg_qI_polybert_matern52/history.xlsx
+[OK] Saved: results/offline_bo/20251128-165910_tg_qI_polybert_matern52/metrics.xlsx
+[OK] Saved: results/offline_bo/20251128-165910_tg_qI_polybert_matern52/config.json
