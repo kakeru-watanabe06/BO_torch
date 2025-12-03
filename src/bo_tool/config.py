@@ -18,6 +18,7 @@ class DataConfig:
     # 追加：カラム範囲（0-based / iloc 用インデックス）
     x_col_start: Optional[int] = None
     x_col_end: Optional[int] = None   # Python のスライスと同じで「終端は含まない」
+    smiles_col: Optional[str] = None
 
 @dataclass
 class ModelConfig:
@@ -39,6 +40,16 @@ class BOConfig:
     max_iters: int = 64
     mc: int = 512
 
+@dataclass
+class ScalerConfig:
+    """
+    生の y (e.g., S1_energy_eV, Oscillator_strength) を
+    固定の平均・標準偏差で標準化するための情報。
+    """
+    y_raw_cols: List[str]  # 例: ["S1_energy_eV", "Oscillator_strength"]
+    mean: List[float]
+    std: List[float]
+
 
 @dataclass
 class OutputConfig:
@@ -53,7 +64,7 @@ class ExperimentConfig:
     model: ModelConfig
     bo: BOConfig
     output: OutputConfig
-    
+    scaler: Optional[ScalerConfig] = None
 
 
 def _as_bool_list(xs: Optional[list]) -> Optional[List[bool]]:
@@ -76,6 +87,7 @@ def load_config(path: str) -> ExperimentConfig:
         y_cols=data_cfg["y_cols"],
         x_col_start=data_cfg.get("x_col_start"),
         x_col_end=data_cfg.get("x_col_end"),
+        smiles_col=data_cfg.get("smiles_col"),
     )
 
     # ===== objective =====
@@ -102,6 +114,16 @@ def load_config(path: str) -> ExperimentConfig:
         max_iters=bo_cfg.get("max_iters", 32),
         mc=bo_cfg.get("mc", 256),
     )
+    
+    # ===== scaler =====
+    scaler_cfg_raw = cfg.get("scaler")
+    sc: Optional[ScalerConfig] = None
+    if scaler_cfg_raw is not None:
+        sc = ScalerConfig(
+            y_raw_cols=scaler_cfg_raw["y_raw_cols"],
+            mean=scaler_cfg_raw["mean"],
+            std=scaler_cfg_raw["std"],
+        )
 
     # ===== output =====
     out_cfg = cfg.get("output", {})
@@ -116,6 +138,7 @@ def load_config(path: str) -> ExperimentConfig:
         model=mc,       
         bo=boc,
         output=outc,
+        scaler=sc,
     )
 
 

@@ -37,6 +37,7 @@ def offline_bo_loop(
     max_iters: int = 64,
     num_mc_samples: int = 512,
     eval_cfg: Optional[Dict] = None,
+    n_init: Optional[int] = None,
 ) -> List[Dict]:
     """
     既知空間での BO ループ（プールから選んで真値をそのまま観測）。
@@ -99,10 +100,39 @@ def offline_bo_loop(
                     y_names=y_cols,
                     model_cfg=model_cfg,
                 )
-                for name, m in loocv_res.items():
+
+                N = X_train.shape[0]  # 現時点での全サンプル数
+
+                for j, name in enumerate(y_cols):
+                    m = loocv_res[name]
+
+                    # レイヤー1：全データ LOOCV（従来通り）
                     rec[f"loocv_{name}_rmse"] = m["rmse"]
-                    rec[f"loocv_{name}_mae"] = m["mae"]
-                    rec[f"loocv_{name}_r2"] = m["r2"]
+                    rec[f"loocv_{name}_mae"]  = m["mae"]
+                    rec[f"loocv_{name}_r2"]   = m["r2"]
+
+                    # レイヤー2：探索点だけ（初期点をテストから除外）
+                    if n_init is not None and "errors" in m and n_init < N:
+                        # 誤差ベクトル（長さ N）
+                        errs = torch.tensor(m["errors"], dtype=torch.double, device=Y_train_raw.device)
+                        explore_errs = errs[n_init:]  # 初期点より後 → 探索で追加された点だけ
+
+                        # 対応する真値（探索点部分）
+                        y_true_all = Y_train_raw[:, j]
+                        y_true_ex  = y_true_all[n_init:]
+
+                        # RMSE / MAE
+                        rmse2 = float(torch.sqrt((explore_errs ** 2).mean()))
+                        mae2  = float(explore_errs.abs().mean())
+
+                        # R²（探索点のみ）
+                        ss_res = float((explore_errs ** 2).sum())
+                        ss_tot = float(((y_true_ex - y_true_ex.mean()) ** 2).sum())
+                        r2_2   = 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+
+                        rec[f"loocv_explore_{name}_rmse"] = rmse2
+                        rec[f"loocv_explore_{name}_mae"]  = mae2
+                        rec[f"loocv_explore_{name}_r2"]   = r2_2
 
         history.append(rec)
 

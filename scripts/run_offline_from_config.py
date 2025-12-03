@@ -51,6 +51,7 @@ def main():
         "min_points": 5,  # 5点まではLOOCVスキップ
         }
     # BO loop
+    n_init = len(used_df)
     history = offline_bo_loop(
         X_cols=x_cols,
         y_cols=cfg.data.y_cols,
@@ -63,6 +64,7 @@ def main():
         max_iters=cfg.bo.max_iters,
         num_mc_samples=cfg.bo.mc,
         eval_cfg=eval_cfg,
+        n_init=n_init,
     )
 
 

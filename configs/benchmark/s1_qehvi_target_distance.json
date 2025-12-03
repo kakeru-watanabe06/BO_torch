@@ -3,45 +3,41 @@
     "train": "data/train/s1_summary_train_dataset.xlsx",
     "all": "data/train/s1_summary_scaled_FP.xlsx",
     "id_col": "Folder",
-    "x_cols": [
-      "F_3",
-      "F_6",
-      "F_7",
-      "R_3",
-      "R_6",
-      "R_7"],
+    "x_cols": [],
     "y_cols": [
       "S1_energy_eV_scaled",
       "Oscillator_strength_scaled"
-    ]
+    ],
+    "x_col_start": 25,
+    "x_col_end": 2074
   },
-    
   "objective": {
-    "kind": "mixed_multi",
-    "weights": [1.0, 1.0],           
-    "targets": [0.0, 1.0],         
+    "kind": "target_distance",
+    "targets": [
+      -0.008576475598373292,
+      -1.0171548970153093
+    ],
+    "weights": [
+      1.0,
+      1.0
+    ],
     "power": 2.0,
-    "maximize": [true, true],       
-    "modes": ["identity", "target"] 
+    "maximize": null
   },
-
   "model": {
-    "kernel": "matern12",
+    "kernel": "tanimoto",
     "ard": false
   },
-
   "eval": {
     "loocv": true,
     "min_points": 5
   },
-
   "bo": {
     "max_iters": 64,
     "mc": 512
   },
-
   "output": {
     "outdir": "results/offline_bo",
-    "tag": "mixed_multi_s1_qehvi_matern12"
+    "tag": "C1_qEHVI_FP_tanimoto_v1"
   }
 }

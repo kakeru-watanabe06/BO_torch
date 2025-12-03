@@ -1,0 +1,42 @@
+{
+  "data": {
+    "train": "data/train/s1_summary_train_dataset.xlsx",
+    "all": "data/train/s1_summary_scaled_FP.xlsx",
+    "id_col": "Folder",
+    "x_cols": ["F_3","F_6","F_7","R_3","R_6","R_7"],
+    "y_cols": ["S1_energy_eV_scaled", "Oscillator_strength_scaled"],
+    "smiles_col": "SMILES"
+  },
+
+  "scaler": {
+    "y_raw_cols": ["S1_energy_eV", "Oscillator_strength"],
+    "mean": [2.50, 0.40],   
+    "std":  [0.30, 0.10]
+  },
+
+  "model": {
+    "kernel": "matern32",
+    "ard": false,
+    "outcome_standardize": true      
+  },
+
+  "objective": {
+    "kind": "mixed_multi",
+    "weights": [1.0, 1.0],
+    "targets": [4.5, 0.3],
+    "power": 2.0,
+    "maximize": [false, true],
+    "modes": ["target", "identity"]
+  },
+
+  "bo": {
+    "max_iters": 20,
+    "mc": 512
+  },
+
+  "output": {
+    "outdir": "results/online_habi",
+    "tag": "habi_online_test"
+  }
+}
+

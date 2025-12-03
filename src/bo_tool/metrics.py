@@ -242,6 +242,14 @@ def brute_force_loocv_metrics(
     for j, name in enumerate(y_names):
         y_true_j = Y_train_raw[:, j]
         y_pred_j = Y_pred[:, j]
-        results[name] = _regression_metrics_1d(y_true_j, y_pred_j)
+
+        # 既存のメトリクス計算を使う
+        metrics = _regression_metrics_1d(y_true_j, y_pred_j)
+
+        # ★ ここを追加：各サンプルの誤差も持たせる
+        residual = (y_pred_j - y_true_j).detach().cpu()
+        metrics["errors"] = residual.tolist()  # 長さ N
+
+        results[name] = metrics
 
     return results

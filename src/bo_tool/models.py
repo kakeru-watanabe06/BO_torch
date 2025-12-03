@@ -42,7 +42,6 @@ def make_covar_module(input_dim: int, cfg: ModelConfig):
         return ScaleKernel(base)
 
     raise ValueError(f"Unknown kernel type: {cfg.kernel}")
-    raise ValueError(f"Unknown kernel type: {cfg.kernel}")
 
 def create_kernel(kernel_name: str, ard: bool, input_dim: int):
     ard_num_dims = input_dim if ard else None
