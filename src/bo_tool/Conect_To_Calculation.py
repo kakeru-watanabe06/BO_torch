@@ -3,13 +3,18 @@ import subprocess
 from pathlib import Path
 from typing import Tuple
 import re
+import os
 
 import torch
 import pandas as pd
 
-CALC_ROOT = Path("/home/kaker/calculation")
-TEMPLATE_JSON = CALC_ROOT / "configs" / "setting.json"
+CALC_ROOT = Path("/Users/macstudio2022/local_calculation")
 RUN_SCRIPT = CALC_ROOT / "scripts" / "run_3_SingleFromConfig.py"
+# 計算用 conda 環境
+CALC_ENV = "/opt/miniconda3/envs/calculation"
+CALC_PYTHON = f"{CALC_ENV}/bin/python"
+CALC_BIN = f"{CALC_ENV}/bin"    
+TEMPLATE_JSON = CALC_ROOT / "configs" / "setting.json"
 
 
 def _load_template_config() -> dict:
@@ -38,17 +43,24 @@ def _build_job_workdir_rel(template_workdir: str, compound_name: str) -> str:
 
 
 def _run_single_job(job_cfg: dict, job_cfg_path: Path) -> None:
-    """JSON を書き出して run_3_SingleFromConfig.py を実行する。"""
     job_cfg_path.parent.mkdir(parents=True, exist_ok=True)
     with open(job_cfg_path, "w", encoding="utf-8") as f:
         json.dump(job_cfg, f, ensure_ascii=False, indent=2)
 
-    cmd = ["python", str(RUN_SCRIPT), "--config", str(job_cfg_path)]
-    # 必要なら python のフルパスに変えてもよい
-    res = subprocess.run(cmd, cwd=str(CALC_ROOT), capture_output=True, text=True)
+    # ★ calculation 環境の bin を PATH に足す
+    env = os.environ.copy()
+    env["PATH"] = f"{CALC_BIN}:" + env.get("PATH", "")
+
+    cmd = [CALC_PYTHON, str(RUN_SCRIPT), "--config", str(job_cfg_path)]
+    res = subprocess.run(
+        cmd,
+        cwd=str(CALC_ROOT),
+        capture_output=True,
+        text=True,
+        env=env,   # ← これ超重要
+    )
 
     if res.returncode != 0:
-        # 失敗時はログを出して例外にする（方針次第でペナルティ値にしてもOK）
         print("=== Calculation failed ===")
         print("STDOUT:\n", res.stdout)
         print("STDERR:\n", res.stderr)
@@ -59,7 +71,7 @@ def _find_states_csv(workdir_rel: str) -> Path:
     /home/kaker/calculation/<workdir_rel>/1/pyscf_tddft/ 以下から
     *_states.csv を探して返す。
     """
-    tddft_dir = CALC_ROOT / workdir_rel / "1" / "pyscf_tddft"
+    tddft_dir = CALC_ROOT / workdir_rel / "pyscf_tddft"
     if not tddft_dir.exists():
         raise FileNotFoundError(f"pyscf_tddft directory not found: {tddft_dir}")
 
@@ -121,6 +133,7 @@ def build_observe_func(cfg, device: torch.device, mean_raw: torch.Tensor, std_ra
         job_cfg["input"]["compound_name"] = compound_name
 
         workdir_rel = _build_job_workdir_rel(template_workdir, compound_name)
+        
         job_cfg["workflow"]["workdir"] = workdir_rel
 
         # ジョブ用設定ファイルの置き場所（計算側の workdir は上で設定済み）
@@ -134,9 +147,9 @@ def build_observe_func(cfg, device: torch.device, mean_raw: torch.Tensor, std_ra
         df = pd.read_csv(states_csv)
         row0 = df.iloc[0]
 
-        # 列名は実際の CSV に合わせてちょっとだけ調整してね
-        e_ev = float(row0["E (eV)"])
-        f_val = float(row0["f"])
+        # 列名は実際の CSV に合わせて調整
+        e_ev = float(row0["excitation_energy_eV"])
+        f_val = float(row0["oscillator_strength_f"])
 
         raw_vals = []
         for col in cfg.scaler.y_raw_cols:

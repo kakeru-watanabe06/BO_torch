@@ -113,14 +113,21 @@ def online_bo_loop(
 
         # ===== 3) 真値観測（オンライン計算） =====
         picked = pool_df.iloc[best_idx]
+        print("========== ONLINE BO DEBUG ==========")
+        print(f"[iter {it}] best_idx: {best_idx}")
+        print(f"[iter {it}] picked ID: {picked[id_col]}")
+        if "SMILES" in pool_df.columns:
+            print(f"[iter {it}] picked SMILES: {picked['SMILES']}")
+        print(f"[iter {it}] picked X values:")
+        print(picked[X_cols])
+        print(f"[iter {it}] picked X dtypes:")
+        print(picked[X_cols].dtypes)
+        print("=====================================")
+
 
         # X はこれまで通りプールの特徴量をそのまま使う
-        newX = torch.tensor(
-            picked[X_cols].to_numpy().reshape(1, -1),
-            dtype=torch.double,
-            device=device,
-        )
-
+        newX_vals = pd.to_numeric(picked[X_cols], errors="coerce").to_numpy(dtype="float64").reshape(1, -1)
+        newX = torch.tensor(newX_vals, dtype=torch.double)
         # ★ observe_func: SMILES などを使って外部計算 → y_raw → 固定スケールで newY を返す
         newY = observe_func(picked)  # -> torch.Tensor
 
