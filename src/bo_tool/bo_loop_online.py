@@ -3,11 +3,14 @@ from __future__ import annotations
 from typing import Dict, List, Tuple, Optional, Callable
 import torch
 import pandas as pd
+from pathlib import Path
 
 from bo_tool.models import build_models
 from bo_tool.acquisition import pick_next
 from bo_tool.objectives import ObjectiveSpec
 from bo_tool.metrics import brute_force_loocv_metrics
+from bo_tool.io_utils import save_history_excel  # まだ import してなければ
+
 
 
 @torch.no_grad()
@@ -41,6 +44,7 @@ def online_bo_loop(
     max_iters: int = 64,
     num_mc_samples: int = 512,
     eval_cfg: Optional[Dict] = None,
+    save_history_dir: Optional[str] = None,
 ) -> List[Dict]:
     """
     オンライン BO ループ（真値は外部計算で取得する版）。
@@ -182,5 +186,14 @@ def online_bo_loop(
 
         # ===== 7) プールから削除 =====
         pool_df = pool_df.drop(pool_df.index[best_idx]).reset_index(drop=True)
+
+        # ===== 8) 履歴保存（任意） =====
+                # ===== 8) 各 iter ごとの履歴 Excel を保存 (オプション) =====
+        if save_history_dir is not None:
+            out_dir = Path(save_history_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            hist_path = out_dir / f"history_iter{it:03d}.xlsx"
+            # history[:] で「ここまでの累積」を渡す
+            save_history_excel(history, hist_path)
 
     return history

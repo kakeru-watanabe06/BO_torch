@@ -27,18 +27,30 @@ def load_offline_data(
       - X_train, Y_train_raw (Tensor)
     を返すユーティリティ。
     """
-    train_df = pd.read_excel(train_path, engine="openpyxl")
-    all_df   = pd.read_excel(all_path,   engine="openpyxl")
+    try:
+        train_df = pd.read_excel(train_path, engine="openpyxl")
+    except Exception as e:
+        train_df = pd.read_csv(train_path)
+    try:
+        all_df = pd.read_excel(all_path, engine="openpyxl")
+    except Exception as e:
+        all_df = pd.read_csv(all_path)
 
     # ★ ここで start/end による自動決定をする
     if (x_col_start is not None) or (x_col_end is not None):
         start = x_col_start if x_col_start is not None else 0
         end   = x_col_end   if x_col_end   is not None else len(all_df.columns)
-        X_cols = list(all_df.columns[start:end])
-        print(f"[INFO] X_cols resolved by index [{start}:{end}) → {len(X_cols)} columns")
 
-        if len(X_cols) == 0:
-            raise ValueError(f"No X columns selected by range [{start}:{end}). Check x_col_start / x_col_end.")
+        cols = all_df.columns
+
+        # 追加: strなら列名→位置へ（endは“まで”なので含める）
+        if isinstance(start, str):
+            start = cols.get_loc(start)
+        if isinstance(end, str):
+            end = cols.get_loc(end) + 1
+
+        X_cols = list(cols[start:end])
+        print(f"[INFO] X_cols resolved by index [{start}:{end}) → {len(X_cols)} columns")
 
     train_ids = set(train_df[id_col].astype(str))
 
@@ -63,8 +75,8 @@ def load_online_data(
     all_path: str,
     id_col: str,
     smiles_col: str,
-    X_cols: List[str],
-    y_cols: List[str],
+    X_cols: List,
+    y_cols: List,
     x_col_start: Optional[int] = None,
     x_col_end: Optional[int] = None,
 ):
@@ -73,17 +85,32 @@ def load_online_data(
     - train.xlsx: ID + X + y（標準化済み）
     - all.xlsx  : ID + SMILES + X（y なし）
     """
-    train_df = pd.read_excel(train_path, engine="openpyxl")
-    all_df   = pd.read_excel(all_path,   engine="openpyxl")
+    try:
+        train_df = pd.read_excel(train_path, engine="openpyxl")
+    except Exception as e:
+        train_df = pd.read_csv(train_path)
+    try:
+        all_df = pd.read_excel(all_path, engine="openpyxl")
+    except Exception as e:
+        all_df = pd.read_csv(all_path)
 
     # 必要なら all 側から X_cols を index指定で決める
     if (x_col_start is not None) or (x_col_end is not None):
         start = x_col_start if x_col_start is not None else 0
         end   = x_col_end   if x_col_end   is not None else len(all_df.columns)
-        X_cols = list(all_df.columns[start:end])
+
+        cols = all_df.columns
+
+        # 追加: strなら列名→位置へ（endは“まで”なので含める）
+        if isinstance(start, str):
+            start = cols.get_loc(start)
+        if isinstance(end, str):
+            end = cols.get_loc(end) + 1
+
+        X_cols = list(cols[start:end])
         print(f"[INFO] X_cols resolved by index [{start}:{end}) → {len(X_cols)} columns")
 
-    print("[DEBUG] X_cols from config/load_online_data:", X_cols)
+    print("[DEBUG] X_cols number from config/load_online_data:", len(X_cols))
     print("[DEBUG] all_df.columns:", list(all_df.columns))
     print("[DEBUG] smiles_col:", smiles_col)  # ★ これを追加
 

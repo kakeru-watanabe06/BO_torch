@@ -88,15 +88,23 @@ def main():
     mean_raw, std_raw = _build_fixed_scaler_from_cfg(cfg, device=device)
 
     # ===== 4) all_df を読んでおく（オフライン検証モード / HV 用） =====
-    all_df = pd.read_excel(cfg.data.all, engine="openpyxl")
+    try:
+        all_df = pd.read_excel(cfg.data.all, engine="openpyxl")
+    except Exception as e:
+        all_df = pd.read_csv(cfg.data.all)
+
     all_df_indexed = all_df.set_index(cfg.data.id_col)
 
     # ===== 5) 真値観測関数 =====
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    exp_name = ts + (f"_{cfg.output.tag}" if cfg.output.tag else "")
+    run_tag = exp_name
     observe_func = build_observe_func(
         cfg=cfg,
         device=device,
         mean_raw=mean_raw,
         std_raw=std_raw,
+        run_tag=run_tag,
     )
 
     # ===== 6) BO ループ実行 =====
@@ -104,6 +112,11 @@ def main():
         "loocv": True,
         "min_points": 5,
     }
+
+    # 出力ディレクトリ決定
+    outdir = Path(cfg.output.outdir) / exp_name
+    ensure_dir(outdir)
+
 
     history = online_bo_loop(
         X_cols=x_cols,
@@ -119,6 +132,7 @@ def main():
         max_iters=cfg.bo.max_iters,
         num_mc_samples=cfg.bo.mc,
         eval_cfg=eval_cfg,
+        save_history_dir=str(outdir)
     )
 
     # ===== 7) 出力（offline_runner と同じスタイル） =====
