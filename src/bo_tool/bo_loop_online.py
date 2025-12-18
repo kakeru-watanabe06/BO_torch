@@ -119,6 +119,7 @@ def online_bo_loop(
         picked = pool_df.iloc[best_idx]
         print("========== ONLINE BO DEBUG ==========")
         print(f"[iter {it}] best_idx: {best_idx}")
+        print(f"[iter {it}] acq values of best_idx: {vals[best_idx]}")
         print(f"[iter {it}] picked ID: {picked[id_col]}")
         if "SMILES" in pool_df.columns:
             print(f"[iter {it}] picked SMILES: {picked['SMILES']}")

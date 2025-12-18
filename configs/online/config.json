@@ -26,7 +26,7 @@
     "kind": "mixed_multi",
     "weights": [1.0, 1.0],
     "targets": [-1.470523074,-500],
-    "power": 2.0,
+    "power": 1.0,
     "maximize": [false, true],
     "modes": ["target", "identity" ]
   },
