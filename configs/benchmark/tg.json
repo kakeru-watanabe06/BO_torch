@@ -1,39 +1,20 @@
-{
-  "data": {
-    "train": "data/train/tg_study.xlsx",
-    "all": "data/train/tg_data.xlsx",
-    "id_col": "ID",
-    "x_cols": [],
-    "y_cols": ["tg"],
-    "x_col_start": 2,
-    "x_col_end": 601
-  },
-  "objective": {
-    "kind": "identity_multi",
-    "maximaize": [
-      1
+
+    "C0targets": [
+      -0.8375303574744327,
+      1.009637247171215
     ],
-    "weights": [
-      1.0
-    ]
-  },
-  "model": {
-    "kernel": "matern52",
-    "ard": false
-  },
 
-  "eval": {
-    "loocv": true,
-    "min_points": 5
-  },
+    "C1targets": [
+      -0.008576475598373292,
+      -1.0171548970153093
+    ],
 
-  "bo": {
-    "max_iters": 100,
-    "mc": 512
-  },
+    "C2targets": [
+      1.0846685906396112,
+      -0.47645839516906746
+    ],
 
-  "output": {
-    "outdir": "results/tg_offline_bo",
-    "tag": "tg_qI_polybert_matern52"
-  }
-}
+    "C3targets": [
+      0.6292700884592923,
+      0.8542452203840315
+    ],

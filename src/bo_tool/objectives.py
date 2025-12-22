@@ -122,21 +122,30 @@ def build_scalar_objective(spec: ObjectiveSpec) -> GenericMCObjective:
         return obj.sum(dim=-1)
     return GenericMCObjective(_transform)
 
+import torch
+from botorch.acquisition.objective import GenericMCObjective
+
 def build_scalar_objective_for_aq(spec) -> GenericMCObjective:
-    weights_list = spec.weights  # 例: [1.0, 0.2, 3.0] みたいなPython list
+    weights_list = spec.weights  # list
 
     def _transform(samples, X=None):
         obj = to_object_space(samples, spec)  # (..., m)
 
-        # weights: obj と同じ dtype/device にそろえる
+        # --- 毎回標準化：最後の次元(m)以外で mean/std を取る ---
+        # reduce_dims = (0, 1, ..., obj.ndim-2)
+        reduce_dims = tuple(range(obj.ndim - 1))
+        mean = obj.mean(dim=reduce_dims, keepdim=True)  # (1,1,...,m)
+        std = obj.std(dim=reduce_dims, keepdim=True, unbiased=False).clamp_min(1e-12)
+        obj = (obj - mean) / std
+
+        # --- weights ---
         w = torch.as_tensor(weights_list, dtype=obj.dtype, device=obj.device)
 
         if obj.shape[-1] == 1:
-            # weights が [w1] でも [w1, ...] でも先頭だけ使う
             return obj.squeeze(-1) * w[0]
 
-        # 形を合わせる: (..., m) * (m,) はブロードキャストOK
         return (obj * w).sum(dim=-1)
+
     return GenericMCObjective(_transform)
 
 
