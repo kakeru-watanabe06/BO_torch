@@ -51,7 +51,8 @@ def to_object_space(Y_raw: torch.Tensor, spec: ObjectiveSpec) -> torch.Tensor:
         w = spec.as_tensor(spec.weights, like=Y_raw)
         # 目的：-w_i * |y_i - t_i|^p（最大化）
         diff = (Y_raw - targets).abs().pow(spec.power)
-        return -(w * diff)
+        # return -(w * diff)
+        return -diff 
 
     elif spec.kind == "identity_multi":
         # maximize=True ならそのまま、False なら符号反転（最小化→最大化へ）
@@ -90,7 +91,8 @@ def to_object_space(Y_raw: torch.Tensor, spec: ObjectiveSpec) -> torch.Tensor:
             elif mode_j == "target":
                 assert targets is not None, "target モードには targets が必要です"
                 diff = (yj - targets[..., j]).abs().pow(spec.power)
-                outs.append(-w[j] * diff)
+                # outs.append(-w[j] * diff)
+                outs.append(-diff)
 
             else:
                 raise ValueError(f"Unknown per-dim mode: {mode_j}")
@@ -118,6 +120,23 @@ def build_scalar_objective(spec: ObjectiveSpec) -> GenericMCObjective:
         if obj.shape[-1] == 1:
             return obj.squeeze(-1)
         return obj.sum(dim=-1)
+    return GenericMCObjective(_transform)
+
+def build_scalar_objective_for_aq(spec) -> GenericMCObjective:
+    weights_list = spec.weights  # 例: [1.0, 0.2, 3.0] みたいなPython list
+
+    def _transform(samples, X=None):
+        obj = to_object_space(samples, spec)  # (..., m)
+
+        # weights: obj と同じ dtype/device にそろえる
+        w = torch.as_tensor(weights_list, dtype=obj.dtype, device=obj.device)
+
+        if obj.shape[-1] == 1:
+            # weights が [w1] でも [w1, ...] でも先頭だけ使う
+            return obj.squeeze(-1) * w[0]
+
+        # 形を合わせる: (..., m) * (m,) はブロードキャストOK
+        return (obj * w).sum(dim=-1)
     return GenericMCObjective(_transform)
 
 

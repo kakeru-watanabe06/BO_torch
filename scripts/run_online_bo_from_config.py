@@ -80,6 +80,7 @@ def main():
     print(f"x_cols used: {x_cols}")
     # ===== 2) 目的関数仕様 =====
     spec = build_objective_spec(cfg.data.y_cols, cfg.objective)
+    eval_cfg = cfg.eval
 
     # ===== 3) 固定スケーラー構築（生 → スケール済み） =====
     #   - 初期データはすでに標準化済みカラムを使っている前提なので、
@@ -108,11 +109,6 @@ def main():
     )
 
     # ===== 6) BO ループ実行 =====
-    eval_cfg = {
-        "loocv": True,
-        "min_points": 5,
-    }
-
     # 出力ディレクトリ決定
     outdir = Path(cfg.output.outdir) / exp_name
     ensure_dir(outdir)
@@ -131,6 +127,8 @@ def main():
         observe_func=observe_func,
         max_iters=cfg.bo.max_iters,
         num_mc_samples=cfg.bo.mc,
+        acq_type=cfg.bo.acq_type,
+        ucb_beta=cfg.bo.ucb_beta,
         eval_cfg=eval_cfg,
         save_history_dir=str(outdir)
     )

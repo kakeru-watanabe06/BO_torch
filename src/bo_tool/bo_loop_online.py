@@ -43,6 +43,8 @@ def online_bo_loop(
     observe_func: Callable[[pd.Series], torch.Tensor],
     max_iters: int = 64,
     num_mc_samples: int = 512,
+    acq_type: str = "auto",
+    ucb_beta: float = 2.0,
     eval_cfg: Optional[Dict] = None,
     save_history_dir: Optional[str] = None,
 ) -> List[Dict]:
@@ -113,6 +115,8 @@ def online_bo_loop(
             Y_train_raw=Y_train_raw,
             spec=spec,
             num_mc_samples=num_mc_samples,
+            acq_type=acq_type,
+            ucb_beta=ucb_beta,
         )
 
         # ===== 3) 真値観測（オンライン計算） =====
@@ -169,7 +173,7 @@ def online_bo_loop(
             rec["target_absdiff_sum"] = float(sum_dist)
 
         # ===== 6) LOOCV 評価（任意） =====
-        if eval_cfg is not None and eval_cfg.get("loocv", False):
+        if eval_cfg is not None and getattr(eval_cfg, "loocv", False):
             min_pts = eval_cfg.get("min_points", 5)
             if X_train.shape[0] >= min_pts:
                 loocv_res = brute_force_loocv_metrics(

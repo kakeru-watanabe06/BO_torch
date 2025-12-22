@@ -8,14 +8,14 @@
       "S1_energy_eV_scaled",
       "Oscillator_strength_scaled"
     ],
-    "x_col_start": 25,
-    "x_col_end": 2074
+    "x_col_start": "F_3",
+    "x_col_end": "R_7"
   },
   "objective": {
     "kind": "target_distance",
     "targets": [
-      -0.008576475598373292,
-      -1.0171548970153093
+      0.6292700884592923,
+      0.8542452203840315
     ],
     "weights": [
       1.0,
@@ -25,19 +25,21 @@
     "maximize": null
   },
   "model": {
-    "kernel": "tanimoto",
+    "kernel": "matern12",
     "ard": false
   },
   "eval": {
-    "loocv": true,
+    "loocv": false,
     "min_points": 5
   },
   "bo": {
-    "max_iters": 64,
-    "mc": 512
+    "max_iters": 55,
+    "mc": 512,
+    "acq_type": "qucb",
+    "ucb_beta": 0.7
   },
   "output": {
-    "outdir": "results/offline_bo",
-    "tag": "C1_qEHVI_FP_tanimoto_v1"
+    "outdir": "results/offline_bo_ucb/FR_beta0.7",
+    "tag": "C3_qucb_FR_matern12_v1"
   }
 }

@@ -35,7 +35,9 @@ def offline_bo_loop(
     spec: ObjectiveSpec,
     model_cfg,                # ← ★ 追加：model 設定
     max_iters: int = 64,
-    num_mc_samples: int = 512,
+    num_mc_samples: int = 512, 
+    acq_type: str = "auto",      # ← ★ 追加：acq_type
+    ucb_beta: float = 2.0,       # ← ★ 追加：
     eval_cfg: Optional[Dict] = None,
     n_init: Optional[int] = None,
 ) -> List[Dict]:
@@ -46,6 +48,7 @@ def offline_bo_loop(
     history: List[Dict] = []
 
     for it in range(1, max_iters + 1):
+        print(f"[Offline BO] Iteration {it}/{max_iters}")
         if len(pool_df) == 0:
             break
 
@@ -60,6 +63,8 @@ def offline_bo_loop(
             Y_train_raw=Y_train_raw,
             spec=spec,
             num_mc_samples=num_mc_samples,
+            acq_type=acq_type,
+            ucb_beta=ucb_beta,
         )
 
          # ===== 3) 真値観測 =====
@@ -91,8 +96,9 @@ def offline_bo_loop(
             rec["target_absdiff_sum"] = float(sum_dist)
 
         # ===== 6) LOOCV 評価 =====
-        if eval_cfg is not None and eval_cfg.get("loocv", False):
-            min_pts = eval_cfg.get("min_points", 5)
+        if eval_cfg is not None and getattr(eval_cfg, "loocv", False):
+            print("  Performing LOOCV evaluation...")
+            min_pts = getattr(eval_cfg, "min_points", 5)
             if X_train.shape[0] >= min_pts:
                 loocv_res = brute_force_loocv_metrics(
                     X_train=X_train,
@@ -134,6 +140,7 @@ def offline_bo_loop(
                         rec[f"loocv_explore_{name}_mae"]  = mae2
                         rec[f"loocv_explore_{name}_r2"]   = r2_2
 
+            print("  LOOCV evaluation done.")
         history.append(rec)
 
         # ===== 7) プールから削除 =====

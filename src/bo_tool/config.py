@@ -39,6 +39,8 @@ class ObjectiveConfig:
 class BOConfig:
     max_iters: int = 64
     mc: int = 512
+    acq_type: str = "auto"      # "auto", "qei", "qehvi", "qucb"
+    ucb_beta: float = 2.0       # qUCB 用 β
 
 @dataclass
 class ScalerConfig:
@@ -50,6 +52,10 @@ class ScalerConfig:
     mean: List[float]
     std: List[float]
 
+@dataclass
+class EvalConfig:
+    loocv: bool = True
+    min_points: int = 5
 
 @dataclass
 class OutputConfig:
@@ -65,6 +71,7 @@ class ExperimentConfig:
     bo: BOConfig
     output: OutputConfig
     scaler: Optional[ScalerConfig] = None
+    eval: Optional[EvalConfig] = None
 
 
 def _as_bool_list(xs: Optional[list]) -> Optional[List[bool]]:
@@ -113,8 +120,17 @@ def load_config(path: str) -> ExperimentConfig:
     boc = BOConfig(
         max_iters=bo_cfg.get("max_iters", 32),
         mc=bo_cfg.get("mc", 256),
+        acq_type=bo_cfg.get("acq_type", "auto"),
+        ucb_beta=bo_cfg.get("ucb_beta", 2.0),
     )
-    
+
+    # ===== eval =====
+    eval_cfg_raw = cfg.get("eval", {})
+    ec = EvalConfig(
+        loocv=eval_cfg_raw.get("loocv", True),
+        min_points=eval_cfg_raw.get("min_points", 5),
+    )
+
     # ===== scaler =====
     scaler_cfg_raw = cfg.get("scaler")
     sc: Optional[ScalerConfig] = None
@@ -139,6 +155,7 @@ def load_config(path: str) -> ExperimentConfig:
         bo=boc,
         output=outc,
         scaler=sc,
+        eval=ec,
     )
 
 

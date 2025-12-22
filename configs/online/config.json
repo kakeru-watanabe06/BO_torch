@@ -33,7 +33,9 @@
 
   "bo": {
     "max_iters": 90,
-    "mc": 512
+    "mc": 512,
+    "acq_type": "qucb",   
+    "ucb_beta": 2.0       
   },
 
   "output": {

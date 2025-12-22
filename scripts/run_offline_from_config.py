@@ -46,10 +46,7 @@ def main():
 
     # objective spec
     spec = build_objective_spec(cfg.data.y_cols, cfg.objective)
-    eval_cfg = {
-        "loocv": True,
-        "min_points": 5,  # 5点まではLOOCVスキップ
-        }
+    eval_cfg = cfg.eval
     # BO loop
     n_init = len(used_df)
     history = offline_bo_loop(
@@ -65,6 +62,8 @@ def main():
         num_mc_samples=cfg.bo.mc,
         eval_cfg=eval_cfg,
         n_init=n_init,
+        acq_type=cfg.bo.acq_type,
+        ucb_beta=cfg.bo.ucb_beta,
     )
 
 
