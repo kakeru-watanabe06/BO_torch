@@ -174,7 +174,7 @@ def online_bo_loop(
 
         # ===== 6) LOOCV 評価（任意） =====
         if eval_cfg is not None and getattr(eval_cfg, "loocv", False):
-            min_pts = eval_cfg.get("min_points", 5)
+            min_pts = getattr(eval_cfg, "min_points", 5)
             if X_train.shape[0] >= min_pts:
                 loocv_res = brute_force_loocv_metrics(
                     X_train=X_train,

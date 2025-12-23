@@ -35,11 +35,11 @@
     "max_iters": 90,
     "mc": 512,
     "acq_type": "qucb",   
-    "ucb_beta": 2.0       
+    "ucb_beta": 1.0       
   },
 
   "output": {
-    "outdir": "results/online_coumarine_large_Swain-Lupton",
+    "outdir": "results/online_coumarine_large_Swain-Lupton_ucb_1",
     "tag": "coumarine_online_large_FR"
   }
 }
