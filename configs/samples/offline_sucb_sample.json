@@ -23,21 +23,21 @@
   },
 
   "objective": {
-    "kind": "target_distance",
+    "kind": "mixed_multi",
     "weights": [1.0, 1.0],
-    "targets": [-3.256479787,6.4560298],
-    "power": 1.0
+    "targets": [-1.470523074,-500],
+    "power": 2.0,
+    "maximize": [false, true],
+    "modes": ["target", "identity" ]
   },
 
   "bo": {
     "max_iters": 90,
-    "mc": 512,
-    "acq_type": "qucb",   
-    "ucb_beta": 1.0       
+    "mc": 512
   },
 
   "output": {
-    "outdir": "results/online_coumarine_large_Swain-Lupton_ucb_C6",
+    "outdir": "results/online_coumarine_large_Swain-Lupton_sucb",
     "tag": "coumarine_online_large_FR"
   }
 }

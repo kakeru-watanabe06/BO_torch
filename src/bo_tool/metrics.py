@@ -1,28 +1,28 @@
-# src/BO_torch/evaluation/metrics.py
 from __future__ import annotations
-from typing import List, Optional, Dict
 
-import torch
+from typing import Dict, List, Optional
+
 import pandas as pd
+import torch
+from botorch.models import ModelListGP, SingleTaskGP
 from botorch.utils.multi_objective.hypervolume import Hypervolume
-from botorch.models import SingleTaskGP, ModelListGP
-from bo_tool.models import build_models  # まだ import してなければ追加
-from botorch.models import SingleTaskGP, ModelListGP
-from bo_tool.objectives import (
-    ObjectiveSpec,
-    to_object_space,
-    build_scalar_objective,
-)
+
+from bo_tool.models import build_models
+from bo_tool.objectives import ObjectiveSpec, build_scalar_objective, to_object_space
 
 
-def fixed_ref_point(all_Y_raw: torch.Tensor, spec: ObjectiveSpec, eps: float | List[float] = 0.1) -> torch.Tensor:
+def fixed_ref_point(
+    all_Y_raw: torch.Tensor,
+    spec: ObjectiveSpec,
+    eps: float | List[float] = 0.1,
+) -> torch.Tensor:
     """
-    解析全体で使い回す固定 ref_point を作る。
-    all_Y_raw（＝データセット全体など）を目的空間に写像して min - eps とする。
+    解析全体で使い回す固定参照点 `ref_point` を作る。
     """
-    Y_all_obj = to_object_space(all_Y_raw, spec)  # (N, m) or (N, 1)
-    assert Y_all_obj.ndim == 2 and Y_all_obj.shape[-1] == spec.dim(), \
+    Y_all_obj = to_object_space(all_Y_raw, spec)
+    assert Y_all_obj.ndim == 2 and Y_all_obj.shape[-1] == spec.dim(), (
         "HVはm次元の目的が必要（linear_scalarizationなどの1次元は対象外）"
+    )
 
     if isinstance(eps, float):
         eps = [eps] * spec.dim()
@@ -34,19 +34,19 @@ def hypervolume_of(Y_raw: torch.Tensor, spec: ObjectiveSpec, ref_point: torch.Te
     """
     与えた観測集合（Y_raw: (k, m)）の非支配集合に対する HV を返す。
     """
-    Y_obj = to_object_space(Y_raw, spec)  # (k, m)
+    Y_obj = to_object_space(Y_raw, spec)
     hv = Hypervolume(ref_point=ref_point)
     return float(hv.compute(Y_obj))
 
 
 def hypervolume_curve(
-    initial_Y: torch.Tensor,      # (n0, m)
-    appended_Ys: List[torch.Tensor],  # 各反復で新規観測した y（(m,) を想定）
+    initial_Y: torch.Tensor,
+    appended_Ys: List[torch.Tensor],
     spec: ObjectiveSpec,
     ref_point: torch.Tensor,
 ) -> List[float]:
     """
-    反復ごとの HV を返す。各ステップで観測集合を累積して HV を計算。
+    反復ごとの HV を返す。
     """
     Ys = [initial_Y.clone()]
     hv_values: List[float] = []
@@ -57,15 +57,14 @@ def hypervolume_curve(
 
 
 def hypervolume_gap_curve(
-    initial_Y: torch.Tensor,       # (n0, m)
+    initial_Y: torch.Tensor,
     appended_Ys: List[torch.Tensor],
-    all_Y_raw: torch.Tensor,       # 既知空間の “全観測”（ベンチマーク用にHVの上限を作る）
+    all_Y_raw: torch.Tensor,
     spec: ObjectiveSpec,
     ref_point: Optional[torch.Tensor] = None,
 ) -> List[float]:
     """
-    全データの非支配集合が持つ HV（上限）からのギャップ（上限 − 現在HV）を出す。
-    ベンチマーク比較に使いやすい。
+    全データに対する HV 上限からのギャップ（上限 - 現在HV）を返す。
     """
     if ref_point is None:
         ref_point = fixed_ref_point(all_Y_raw, spec)
@@ -83,12 +82,11 @@ def scalar_best_curve(
     scalar_obj = build_scalar_objective(spec)
 
     def _scalarize(Y: torch.Tensor) -> torch.Tensor:
-        # build_scalar_objective の中で to_object_space するので、
-        # ここでは「生の Y_raw」をそのまま渡す
         return scalar_obj(Y)
 
-    cur = _scalarize(initial_Y)  # (n0,)
+    cur = _scalarize(initial_Y)
     best = float(torch.max(cur))
+
     seq: List[float] = []
     for y in appended_Ys:
         val = float(_scalarize(y.view(1, -1))[0])
@@ -100,9 +98,9 @@ def scalar_best_curve(
 
 def history_to_appended_Ys(history: List[Dict], y_cols: List[str]) -> List[torch.Tensor]:
     """
-    offline_bo_loop の history（list[dict]）から、各反復で追加された y を (m,) Tensor にして返す。
+    history（list[dict]）から各反復で追加された y を (m,) Tensor として返す。
     """
-    ys = []
+    ys: List[torch.Tensor] = []
     for rec in history:
         row = [rec[f"y[{j}]_{col}"] for j, col in enumerate(y_cols)]
         ys.append(torch.tensor(row, dtype=torch.double))
@@ -115,10 +113,10 @@ def make_metrics_dataframe(
     scalar_best_vals: Optional[List[float]] = None,
 ) -> pd.DataFrame:
     """
-    曲線群を 1 本の DataFrame（iter 対 column）にまとめるユーティリティ。
+    指標曲線を iter 軸の DataFrame にまとめる。
     """
     iters = None
-    data = {}
+    data: Dict[str, List[float]] = {}
 
     if hv_curve_vals is not None:
         iters = list(range(1, len(hv_curve_vals) + 1))
@@ -135,27 +133,23 @@ def make_metrics_dataframe(
     if iters is None:
         return pd.DataFrame()
 
-    df = pd.DataFrame({"iter": iters, **data})
-    return df
+    return pd.DataFrame({"iter": iters, **data})
 
-# ===== ここから LOOCV 用ユーティリティ =====
 
-def _regression_metrics_1d(
-    y_true: torch.Tensor,
-    y_pred: torch.Tensor,
-) -> Dict[str, float]:
+# ===== LOOCV =====
+
+def _regression_metrics_1d(y_true: torch.Tensor, y_pred: torch.Tensor) -> Dict[str, float]:
     """
-    1 次元系列に対して RMSE / MAE / R² を計算。
-    （すでにあればそれを使ってOK）
+    1次元系列に対する RMSE / MAE / R²。
     """
     y_true = y_true.flatten()
     y_pred = y_pred.flatten()
 
     residual = y_pred - y_true
-    rmse = torch.sqrt(torch.mean(residual ** 2))
+    rmse = torch.sqrt(torch.mean(residual**2))
     mae = torch.mean(torch.abs(residual))
 
-    ss_res = torch.sum(residual ** 2)
+    ss_res = torch.sum(residual**2)
     ss_tot = torch.sum((y_true - y_true.mean()) ** 2)
     r2 = 1.0 - ss_res / ss_tot
 
@@ -171,21 +165,10 @@ def brute_force_loocv_metrics(
     Y_train_raw: torch.Tensor,
     y_names: List[str],
     model_cfg,
-) -> Dict[str, Dict[str, float]]:
+) -> Dict[str, Dict[str, object]]:
     """
-    完全愚直版 LOOCV：
-      各 i について
-        - i を抜いたデータで build_models(...) して GP をフィット
-        - x_i を予測
-      を N 回まわし、
-      各出力次元ごとに RMSE / MAE / R² を返す。
-
-    戻り値:
-      {
-        "S1_energy_eV_scaled": {"rmse": ..., "mae": ..., "r2": ...},
-        "Oscillator_strength_scaled": {...},
-        ...
-      }
+    完全愚直版 LOOCV:
+    各点を1つずつ抜いて再学習し、その点の予測誤差を集計する。
     """
     device = X_train.device
     dtype = X_train.dtype
@@ -193,7 +176,6 @@ def brute_force_loocv_metrics(
     N = X_train.shape[0]
     Y_train_raw = Y_train_raw.to(device=device, dtype=dtype)
 
-    # 予測値を貯めるバッファ (N, M)
     if Y_train_raw.ndim == 1:
         Y_train_raw = Y_train_raw.view(N, 1)
     N, M = Y_train_raw.shape
@@ -201,55 +183,45 @@ def brute_force_loocv_metrics(
 
     Y_pred = torch.empty_like(Y_train_raw)
 
-    # 各 i について「i を抜いて再フィット → x_i を予測」
     for i in range(N):
         mask = torch.ones(N, dtype=torch.bool, device=device)
         mask[i] = False
 
-        X_i = X_train[mask]        # (N-1, d)
-        Y_i = Y_train_raw[mask]    # (N-1, M)
+        X_i = X_train[mask]
+        Y_i = Y_train_raw[mask]
 
-        # build_models は X, Y, model_cfg から SingleTaskGP or ModelListGP を返す想定
         model_i = build_models(X_i, Y_i, model_cfg)
         model_i.eval()
 
-        x_test = X_train[i : i + 1]  # (1, d)
+        x_test = X_train[i : i + 1]
 
         if isinstance(model_i, SingleTaskGP):
-            # 多出力 SingleTaskGP の場合は mean の shape が (1, M) のイメージ
             with torch.no_grad():
                 post = model_i.posterior(x_test)
-                mean = post.mean.view(1, -1)  # (1, M)
+                mean = post.mean.view(1, -1)
             Y_pred[i] = mean[0]
 
         elif isinstance(model_i, ModelListGP):
-            # 各 output ごとに 1 つの SingleTaskGP
             assert len(model_i.models) == M, "ModelListGP のモデル数と Y の次元が一致していません"
             preds = []
             with torch.no_grad():
                 for sub_model in model_i.models:
                     assert isinstance(sub_model, SingleTaskGP)
                     post = sub_model.posterior(x_test)
-                    # (1,1) を想定
                     preds.append(post.mean.view(-1)[0])
             Y_pred[i] = torch.stack(preds)
 
         else:
             raise TypeError(f"Unsupported model type in brute_force_loocv_metrics: {type(model_i)}")
 
-    # 各次元ごとに指標を計算
-    results: Dict[str, Dict[str, float]] = {}
+    results: Dict[str, Dict[str, object]] = {}
     for j, name in enumerate(y_names):
         y_true_j = Y_train_raw[:, j]
         y_pred_j = Y_pred[:, j]
 
-        # 既存のメトリクス計算を使う
         metrics = _regression_metrics_1d(y_true_j, y_pred_j)
-
-        # ★ ここを追加：各サンプルの誤差も持たせる
         residual = (y_pred_j - y_true_j).detach().cpu()
-        metrics["errors"] = residual.tolist()  # 長さ N
-
+        metrics["errors"] = residual.tolist()
         results[name] = metrics
 
     return results

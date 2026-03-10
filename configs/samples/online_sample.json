@@ -9,36 +9,33 @@
     "y_cols": ["S1_energy_eV_scaled", "Oscillator_strength_scaled"],
     "smiles_col": "SMILES"
   },
-
   "scaler": {
     "y_raw_cols": ["S1_energy_eV", "Oscillator_strength"],
-    "mean": [4.239423742, 0.246500903],   
-    "std":  [0.321735681, 0.162087901]
+    "mean": [4.239423742, 0.246500903],
+    "std": [0.321735681, 0.162087901]
   },
-
-  "model": {
-    "kernel": "matern12",
-    "ard": false,
-    "outcome_standardize": true      
-  },
-
   "objective": {
     "kind": "target_distance",
     "weights": [1.0, 1.0],
-    "targets": [-3.256479787,6.4560298],
+    "targets": [-3.256479787, 6.4560298],
     "power": 1.0
   },
-
+  "model": {
+    "kernel": "matern12",
+    "ard": false
+  },
   "bo": {
     "max_iters": 90,
     "mc": 512,
-    "acq_type": "qucb",   
-    "ucb_beta": 1.0       
+    "acq_type": "qucb",
+    "ucb_beta": 1.0
   },
-
+  "eval": {
+    "loocv": true,
+    "min_points": 5
+  },
   "output": {
-    "outdir": "results/online_coumarine_large_Swain-Lupton_ucb_C6",
-    "tag": "coumarine_online_large_FR"
+    "outdir": "results/online_sample",
+    "tag": "online_example"
   }
 }
-

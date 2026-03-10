@@ -1,49 +1,46 @@
 #!/usr/bin/env python
 from __future__ import annotations
-import argparse, json
-from pathlib import Path
+
+import argparse
+import json
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import torch
 
-# import path
-ROOT = Path(__file__).resolve().parents[1]  # BO_TORCH/
-sys.path.append(str(ROOT / "src"))          # BO_TORCH/src
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT / "src"))
 
-from bo_tool.config import load_config, build_objective_spec
-from bo_tool.data_utils import load_online_data
-from bo_tool.bo_loop_online import online_bo_loop
 from bo_tool.Conect_To_Calculation import build_observe_func
-from bo_tool.metrics import (
-    fixed_ref_point, hypervolume_curve, hypervolume_gap_curve,
-    scalar_best_curve, history_to_appended_Ys, make_metrics_dataframe
-)
+from bo_tool.bo_loop_online import online_bo_loop
+from bo_tool.config import build_objective_spec, load_config
+from bo_tool.data_utils import load_online_data
 from bo_tool.io_utils import ensure_dir, save_history_excel, save_metrics_excel
+from bo_tool.metrics import (
+    fixed_ref_point,
+    history_to_appended_Ys,
+    hypervolume_curve,
+    hypervolume_gap_curve,
+    make_metrics_dataframe,
+    scalar_best_curve,
+)
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Online BO runner (JSON config)")
-    p.add_argument("--config", required=True, help="path to JSON config")
-    return p.parse_args()
+    parser = argparse.ArgumentParser(description="Online BO runner (JSON config)")
+    parser.add_argument("--config", required=True, help="path to JSON config")
+    return parser.parse_args()
 
 
 def _build_fixed_scaler_from_cfg(cfg, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    cfg.scaler から y_raw → y_scaled 用の mean / std ベクトルを作る。
-
-    期待する config 例：
-      "scaler": {
-        "y_raw_cols": ["S1_energy_eV", "Oscillator_strength"],
-        "mean": [2.50, 0.40],
-        "std":  [0.30, 0.10]
-      }
-
-    - y_cols (cfg.data.y_cols) と scaler.y_raw_cols は論理的には同じ次元数 m を持つ前提。
-    - 生の戻り値は scaler.y_raw_cols の順番で並べてベクトル化し、
-      (y_raw - mean) / std をとったものを BO に渡す。
+    cfg.scaler から y_raw -> y_scaled 用の mean / std ベクトルを作る。
     """
+    if cfg.scaler is None:
+        raise ValueError("online 実行には scaler セクションが必要です。")
+
     raw_cols = list(cfg.scaler.y_raw_cols)
     mean = torch.tensor(list(cfg.scaler.mean), dtype=torch.double, device=device)
     std = torch.tensor(list(cfg.scaler.std), dtype=torch.double, device=device)
@@ -56,6 +53,28 @@ def _build_fixed_scaler_from_cfg(cfg, device: torch.device) -> tuple[torch.Tenso
     return mean, std
 
 
+def _read_table(path: str) -> pd.DataFrame:
+    try:
+        return pd.read_excel(path, engine="openpyxl")
+    except Exception:
+        return pd.read_csv(path)
+
+
+def _make_output_dir(base_outdir: str, tag: str) -> tuple[str, Path]:
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    exp_name = ts + (f"_{tag}" if tag else "")
+    outdir = Path(base_outdir) / exp_name
+    ensure_dir(outdir)
+    return exp_name, outdir
+
+
+def _save_config_snapshot(config_path: str, outpath: Path) -> None:
+    with open(config_path, "r", encoding="utf-8") as f:
+        config_data = json.load(f)
+    with open(outpath, "w", encoding="utf-8") as f:
+        json.dump(config_data, f, ensure_ascii=False, indent=2)
+
+
 def main():
     torch.set_default_dtype(torch.double)
     args = parse_args()
@@ -63,7 +82,6 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # ===== 1) データ読込み =====
     used_df, pool_df, X_train, Y_train_scaled_init, x_cols = load_online_data(
         train_path=cfg.data.train,
         all_path=cfg.data.all,
@@ -74,49 +92,30 @@ def main():
         x_col_start=cfg.data.x_col_start,
         x_col_end=cfg.data.x_col_end,
     )
-    smiles_col = cfg.data.smiles_col
-    if smiles_col not in pool_df.columns:
-        raise ValueError(f"smiles_col={smiles_col} が pool_df に存在しません")
+
+    if cfg.data.smiles_col not in pool_df.columns:
+        raise ValueError(f"smiles_col={cfg.data.smiles_col} が pool_df に存在しません")
+
     print(f"x_cols used: {x_cols}")
-    # ===== 2) 目的関数仕様 =====
+
     spec = build_objective_spec(cfg.data.y_cols, cfg.objective)
     eval_cfg = cfg.eval
-
-    # ===== 3) 固定スケーラー構築（生 → スケール済み） =====
-    #   - 初期データはすでに標準化済みカラムを使っている前提なので、
-    #     Y_train_scaled_init はそのまま GP に渡す。
-    #   - 新規観測は「生の y_raw」から mean/std で標準化してから追加する。
     mean_raw, std_raw = _build_fixed_scaler_from_cfg(cfg, device=device)
 
-    # ===== 4) all_df を読んでおく（オフライン検証モード / HV 用） =====
-    try:
-        all_df = pd.read_excel(cfg.data.all, engine="openpyxl")
-    except Exception as e:
-        all_df = pd.read_csv(cfg.data.all)
+    all_df = _read_table(cfg.data.all)
+    exp_name, outdir = _make_output_dir(cfg.output.outdir, cfg.output.tag)
 
-    all_df_indexed = all_df.set_index(cfg.data.id_col)
-
-    # ===== 5) 真値観測関数 =====
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    exp_name = ts + (f"_{cfg.output.tag}" if cfg.output.tag else "")
-    run_tag = exp_name
     observe_func = build_observe_func(
         cfg=cfg,
         device=device,
         mean_raw=mean_raw,
         std_raw=std_raw,
-        run_tag=run_tag,
+        run_tag=exp_name,
     )
-
-    # ===== 6) BO ループ実行 =====
-    # 出力ディレクトリ決定
-    outdir = Path(cfg.output.outdir) / exp_name
-    ensure_dir(outdir)
-
 
     history = online_bo_loop(
         X_cols=x_cols,
-        y_cols=cfg.data.y_cols,       # 「標準化後の目的変数」の論理名
+        y_cols=cfg.data.y_cols,
         id_col=cfg.data.id_col,
         smiles_col=cfg.data.smiles_col,
         pool_df=pool_df,
@@ -130,20 +129,12 @@ def main():
         acq_type=cfg.bo.acq_type,
         ucb_beta=cfg.bo.ucb_beta,
         eval_cfg=eval_cfg,
-        save_history_dir=str(outdir)
+        save_history_dir=str(outdir),
     )
 
-    # ===== 7) 出力（offline_runner と同じスタイル） =====
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    exp_name = ts + (f"_{cfg.output.tag}" if cfg.output.tag else "")
-    outdir = Path(cfg.output.outdir) / exp_name
-    ensure_dir(outdir)
-
-    # history
     hist_path = outdir / "history.xlsx"
     save_history_excel(history, hist_path)
 
-    # metrics
     all_Y_raw = torch.tensor(all_df[cfg.data.y_cols].to_numpy(), dtype=torch.double, device=device)
     appended_Ys = history_to_appended_Ys(history, cfg.data.y_cols)
     initial_Y = Y_train_scaled_init.to(device=device)
@@ -163,20 +154,15 @@ def main():
             scalar_best_vals=best_vals,
         )
 
-    save_metrics_excel(metrics_df, outdir / "metrics.xlsx")
+    metrics_path = outdir / "metrics.xlsx"
+    save_metrics_excel(metrics_df, metrics_path)
 
-    # config snapshot
-    with open(outdir / "config.json", "w", encoding="utf-8") as f:
-        json.dump(
-            json.load(open(args.config, "r", encoding="utf-8")),
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
+    config_path = outdir / "config.json"
+    _save_config_snapshot(args.config, config_path)
 
     print(f"[OK] Saved: {hist_path}")
-    print(f"[OK] Saved: {outdir / 'metrics.xlsx'}")
-    print(f"[OK] Saved: {outdir / 'config.json'}")
+    print(f"[OK] Saved: {metrics_path}")
+    print(f"[OK] Saved: {config_path}")
 
 
 if __name__ == "__main__":
