@@ -24,7 +24,7 @@ data/
 results/
 logs/
 *.log
-
+configs/benchmark/
 # 一時ファイル
 *.tmp
 *.temp

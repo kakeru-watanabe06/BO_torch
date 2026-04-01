@@ -54,7 +54,7 @@ def parse_args():
     parser.add_argument(
         "--acq_type",
         default="auto",
-        choices=["auto", "qei", "qehvi", "qucb", "q_ucb", "ucb", "sucb", "s_ucb"],
+        choices=["auto", "qei", "qehvi", "qucb", "q_ucb", "ucb", "sucb", "s_ucb", "random"],
     )
     parser.add_argument("--ucb_beta", type=float, default=2.0)
 
