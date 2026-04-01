@@ -21,6 +21,16 @@ from .objectives import (
 DEFAULT_NUM_MC = 512
 
 
+def _build_random_acquisition() -> Callable[[torch.Tensor], torch.Tensor]:
+    """Random baseline: assign independent uniform scores to candidates."""
+
+    def _acqf(X: torch.Tensor) -> torch.Tensor:
+        n = X.shape[0]
+        return torch.rand(n, dtype=X.dtype, device=X.device)
+
+    return _acqf
+
+
 def _build_standardized_ucb(
     model: ModelListGP,
     spec: ObjectiveSpec,
@@ -75,9 +85,12 @@ def build_acquisition(
     `acq_type` と目的次元に応じて獲得関数を構築し、
     `(acqf, is_multiobjective)` を返す。
     """
-    acq_mode = acq_type.lower()
+    acq_mode = (acq_type or "auto").lower()
     sampler = SobolQMCNormalSampler(sample_shape=torch.Size([num_mc_samples]))
     m = spec.dim()
+
+    if acq_mode in ("random", "rand"):
+        return _build_random_acquisition(), False
 
     if acq_mode in ("sucb", "s_ucb"):
         return _build_standardized_ucb(
@@ -111,6 +124,10 @@ def build_acquisition(
             objective=objective,
         )
         return acqf, True
+
+    if acq_mode not in ("auto", "qei", "qehvi"):
+        allowed = "auto, qei, qehvi, qucb, q_ucb, ucb, sucb, s_ucb, random, rand"
+        raise ValueError(f"Unknown acq_type: {acq_type}. Allowed values: {allowed}")
 
     objective = build_scalar_objective(spec)
     y_scalar = objective(Y_train_raw).detach()

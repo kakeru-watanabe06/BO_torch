@@ -44,6 +44,18 @@ def _resolve_matern_nu(kernel_name: str) -> float | None:
     return aliases.get(_normalize_kernel_name(kernel_name))
 
 
+def _is_rbf_kernel(kernel_name: str) -> bool:
+    aliases = {
+        "rbf",
+        "gaussian",
+        "squared_exponential",
+        "squaredexp",
+        "sqexp",
+        "se",
+    }
+    return _normalize_kernel_name(kernel_name) in aliases
+
+
 @dataclass
 class ModelConfig:
     kernel: str = "matern32"
@@ -58,6 +70,9 @@ def make_covar_module(input_dim: int, cfg: _ModelConfigLike):
     nu = _resolve_matern_nu(kernel_name)
     if nu is not None:
         return _build_matern(nu, ard_num_dims)
+
+    if _is_rbf_kernel(kernel_name):
+        return ScaleKernel(RBFKernel(ard_num_dims=ard_num_dims))
 
     if kernel_name == "tanimoto":
         if cfg.ard:
@@ -74,7 +89,7 @@ def create_kernel(kernel_name: str, ard: bool, input_dim: int):
     nu = _resolve_matern_nu(norm_name)
     if nu is not None:
         return _build_matern(nu, ard_num_dims)
-    if norm_name in ["rbf", "gaussian"]:
+    if _is_rbf_kernel(norm_name):
         return ScaleKernel(RBFKernel(ard_num_dims=ard_num_dims))
 
     raise ValueError(f"Unknown kernel type: {kernel_name}")
